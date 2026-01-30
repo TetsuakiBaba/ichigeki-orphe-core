@@ -1,5 +1,5 @@
 var orphe_js_version_date = `
-Last modified: 2026/01/30 11:33:40
+Last modified: 2026/01/31 08:25:51
 `;
 /**
 ORPHE-CORE.js is javascript library for ORPHE CORE Module, inspired by BlueJelly.js
@@ -422,14 +422,13 @@ class Orphe {
     if (range.gyro == 1000) obj.range.gyro = 2;
     if (range.gyro == 500) obj.range.gyro = 1;
     if (range.gyro == 250) obj.range.gyro = 0;
-    // 設定値の書き換え    
-    await this.setDeviceInformation(obj);
 
-    // コアの書き込みを待つため，500ms待つ．特に次で速度計測するのでやや長めに設定している
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // 設定値の書き換え    CR-2の場合、デバイス情報の書き込みに時間がかかることがあるため、現状コードはスキップさせます
+    // await new Promise(resolve => setTimeout(resolve, 1000));
+    // await this.setDeviceInformation(obj);
 
-    // DateTimeキャラクタリスティックを利用して時刻を同期する．現在のPC時間とデータ取得にかかる統計値からその分コアの時計を進めておく．
-    await this.syncCoreTime();
+    // // DateTimeキャラクタリスティックを利用して時刻を同期する．現在のPC時間とデータ取得にかかる統計値からその分コアの時計を進めておく．
+    // await this.syncCoreTime();
 
     // ここで実際にnotifyを開始しています．
     return new Promise((resolve, reject) => {
