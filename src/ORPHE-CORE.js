@@ -1,5 +1,5 @@
 var orphe_js_version_date = `
-Last modified: 2025/10/10 16:50:18
+Last modified: 2026/01/30 11:33:40
 `;
 /**
 ORPHE-CORE.js is javascript library for ORPHE CORE Module, inspired by BlueJelly.js
@@ -413,6 +413,7 @@ class Orphe {
     this.notification_type = str_type;
 
     let obj = await this.getDeviceInformation();
+
     if (range.acc == 16) obj.range.acc = 3;
     if (range.acc == 8) obj.range.acc = 2;
     if (range.acc == 4) obj.range.acc = 1;
@@ -421,7 +422,7 @@ class Orphe {
     if (range.gyro == 1000) obj.range.gyro = 2;
     if (range.gyro == 500) obj.range.gyro = 1;
     if (range.gyro == 250) obj.range.gyro = 0;
-    // 設定値の書き換え
+    // 設定値の書き換え    
     await this.setDeviceInformation(obj);
 
     // コアの書き込みを待つため，500ms待つ．特に次で速度計測するのでやや長めに設定している
@@ -434,6 +435,7 @@ class Orphe {
     return new Promise((resolve, reject) => {
 
       if (str_type == "STEP_ANALYSIS") {
+
         this.startNotify('STEP_ANALYSIS').then(() => {
           resolve("done begin(); STEP ANALYSIS");
         })
