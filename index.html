@@ -1,203 +1,155 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ORPHE CORE - LEDコントローラ</title>
-  <link rel="icon" href="images/favicon.png">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial; margin: 24px; color: #222 }
-    h1 { font-size: 1.4rem; margin-bottom: 8px }
-    .card { border: 1px solid #e0e0e0; padding: 16px; border-radius: 8px; max-width: 720px }
-    .row { display:flex; gap:12px; align-items:center; margin-bottom:12px }
-    .controls { display:flex; gap:12px; align-items:center; flex-wrap:wrap }
-    button { background:#0078d4; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer }
-    button.secondary { background:#666 }
-    select, input[type=range] { padding:6px }
-    .status { font-weight:600; color:#0078d4 }
-    .preview { width:48px; height:48px; border-radius:50%; background:#111; display:inline-block; box-shadow:0 0 8px rgba(0,0,0,0.2) }
-    .hint { color:#666; font-size:0.9rem }
-    label { display:flex; gap:8px; align-items:center }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORPHE CORE LED 点滅デモ</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+
+        #connect-button {
+            background-color: #007bff;
+            color: white;
+        }
+
+        #connect-button:hover {
+            background-color: #0056b3;
+        }
+
+        #blink-button {
+            background-color: #28a745;
+            color: white;
+        }
+
+        #blink-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #blink-button.active {
+            background-color: #dc3545;
+        }
+
+        .status {
+            margin-top: 1rem;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
 </head>
+
 <body>
-  <h1>ORPHE CORE - LED 発光パターン変更アプリ ✅</h1>
-  <div class="card">
-    <div class="row">
-      <div>
-        <div class="hint">接続状態: <span id="connState" class="status">未接続</span></div>
-        <div class="hint">選択パターン: <span id="currentPattern">-</span></div>
-      </div>
-      <div style="margin-left:auto">
-        <button id="btnConnect">接続 (ユーザー操作が必要)</button>
-        <button id="btnDisconnect" class="secondary" disabled>切断</button>
-      </div>
+    <div class="container">
+        <h1>ORPHE CORE LED 点滅</h1>
+        <button id="connect-button">ORPHE CORE に接続</button>
+        <br>
+        <button id="blink-button" disabled>LED点滅開始</button>
+        <div class="status" id="status-text">デバイス未接続</div>
     </div>
 
-    <hr />
+    <script src="src/ORPHE-CORE.js"></script>
+    <script>
+        const ble = new Orphe(0);
+        let isBlinking = false;
+        let blinkInterval = null;
 
-    <div class="row">
-      <div>
-        <label for="patternSelect">パターン</label>
-        <select id="patternSelect">
-          <option value="0">0 - 通常点灯</option>
-          <option value="1">1 - アニメ 1</option>
-          <option value="2">2 - アニメ 2</option>
-          <option value="3">3 - アニメ 3</option>
-          <option value="4">4 - アニメ 4</option>
-        </select>
-      </div>
+        const connectBtn = document.getElementById('connect-button');
+        const blinkBtn = document.getElementById('blink-button');
+        const statusText = document.getElementById('status-text');
 
-      <div>
-        <label>状態
-          <select id="onOff">
-            <option value="1">点灯 (ON)</option>
-            <option value="0">消灯 (OFF)</option>
-          </select>
-        </label>
-      </div>
-
-      <div style="margin-left:auto; display:flex; gap:12px; align-items:center">
-        <div class="preview" id="ledPreview" title="選択中のパターンを簡易表示"></div>
-        <button id="btnSetLED" disabled>LED 設定を反映</button>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="hint">※ Web Bluetooth の仕様により、接続はユーザー操作（ボタン押下）から開始してください。</div>
-    </div>
-
-    <hr />
-
-    <div>
-      <div class="hint">デバッグ / ログ</div>
-      <pre id="log" style="height:120px; overflow:auto; background:#fafafa; padding:8px; border-radius:6px; border:1px solid #eee"></pre>
-    </div>
-  </div>
-
-  <script src="src/ORPHE-CORE.js"></script>
-  <script>
-    // ORPHE-CORE を使った LED 制御サンプル
-    // 日本語コメント付き。接続は必ずユーザー操作（ボタン押下）で行ってください。
-
-    let ble = null;
-    let isConnected = false;
-
-    const logEl = document.getElementById('log');
-    const connStateEl = document.getElementById('connState');
-    const currentPatternEl = document.getElementById('currentPattern');
-    const ledPreview = document.getElementById('ledPreview');
-
-    function log(...args) {
-      const line = '[' + new Date().toLocaleTimeString() + '] ' + args.join(' ');
-      logEl.textContent = line + '\n' + logEl.textContent;
-    }
-
-    function updateUI() {
-      document.getElementById('btnSetLED').disabled = !isConnected;
-      document.getElementById('btnDisconnect').disabled = !isConnected;
-      document.getElementById('btnConnect').disabled = isConnected;
-      connStateEl.textContent = isConnected ? '接続済み' : '未接続';
-    }
-
-    function reflectPreview(pattern, onOff) {
-      // 簡易プレビュー: パターン番号に応じて色・点滅を変える
-      const colors = ['#00b894','#0984e3','#6c5ce7','#fd79a8','#e17055'];
-      ledPreview.style.background = onOff === 1 ? colors[pattern] : '#111';
-      // 点滅アニメは CSS ではなく JS で簡易実装
-      ledPreview.style.boxShadow = onOff === 1 ? `0 0 12px ${colors[pattern]}` : '0 0 8px rgba(0,0,0,0.2)';
-    }
-
-    window.onload = () => {
-      // インスタンス生成と初期化
-      try {
-        ble = new Orphe(0); // 0 または 1
-        if (ble && typeof ble.setup === 'function') {
-          ble.setup();
-          log('ORPHE 初期化済み');
-        }
-      } catch (e) {
-        log('ORPHE 初期化エラー:', e.message);
-      }
-
-      // データ欠損ハンドラ
-      if (ble) {
-        ble.lostData = (num, num_prev) => {
-          log('lostData:', 'cur=' + num, 'prev=' + num_prev);
+        // 初期化
+        window.onload = () => {
+            ble.setup();
         };
-      }
 
-      // UI イベント
-      document.getElementById('btnConnect').addEventListener('click', async () => {
-        // ユーザージェスチャから接続
-        try {
-          log('接続処理を開始します...');
-          // 引数は取得するデータ種別: 'SENSOR_VALUES' / 'STEP_ANALYSIS' / 'STEP_ANALYSIS_AND_SENSOR_VALUES'
-          await ble.begin('STEP_ANALYSIS_AND_SENSOR_VALUES');
-          isConnected = true;
-          log('接続成功');
-          updateUI();
+        // 接続処理
+        connectBtn.addEventListener('click', async () => {
+            try {
+                // LED制御のみの場合でも基本のデータ種別を指定して接続
+                await ble.begin('STEP_ANALYSIS_AND_SENSOR_VALUES');
+                statusText.innerText = "接続完了";
+                connectBtn.style.display = 'none';
+                blinkBtn.disabled = false;
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = "接続に失敗しました";
+            }
+        });
 
-          // 接続後に必要ならコールバックを設定
-          ble.gotStepsNumber = (s) => log('Steps:', s.value);
-          ble.gotEuler = (e) => {};
+        // 点滅処理の切り替え
+        blinkBtn.addEventListener('click', () => {
+            if (!isBlinking) {
+                startBlinking();
+            } else {
+                stopBlinking();
+            }
+        });
 
-        } catch (err) {
-          log('接続失敗:', err.message || err);
+        function startBlinking() {
+            isBlinking = true;
+            blinkBtn.innerText = "LED点滅停止";
+            blinkBtn.classList.add('active');
+            statusText.innerText = "点滅中...";
+
+            let ledState = 1;
+            blinkInterval = setInterval(() => {
+                // setLED(on_off, pattern)
+                // pattern 0 は通常点灯
+                ble.setLED(ledState, 0);
+                ledState = ledState === 1 ? 0 : 1;
+            }, 500); // 500ms周期で反転
         }
-      });
 
-      document.getElementById('btnDisconnect').addEventListener('click', async () => {
-        // 明確な切断APIがなければページリロードでもよい
-        try {
-          if (ble && typeof ble.end === 'function') {
-            await ble.end();
-            log('切断しました (ble.end)');
-          } else if (ble && typeof ble.disconnect === 'function') {
-            await ble.disconnect();
-            log('切断しました (ble.disconnect)');
-          } else {
-            log('切断 API が見つかりません。ページをリロードします。');
-            location.reload();
-            return;
-          }
-        } catch (e) {
-          log('切断時エラー:', e.message);
+        function stopBlinking() {
+            isBlinking = false;
+            blinkBtn.innerText = "LED点滅開始";
+            blinkBtn.classList.remove('active');
+            statusText.innerText = "停止中";
+
+            if (blinkInterval) {
+                clearInterval(blinkInterval);
+                blinkInterval = null;
+            }
+            // 消灯させる
+            ble.setLED(0, 0);
         }
-        isConnected = false;
-        updateUI();
-      });
 
-      document.getElementById('patternSelect').addEventListener('change', (e) => {
-        const p = Number(e.target.value);
-        const onOff = Number(document.getElementById('onOff').value);
-        currentPatternEl.textContent = p;
-        reflectPreview(p, onOff);
-      });
-      document.getElementById('onOff').addEventListener('change', (e) => {
-        const onOff = Number(e.target.value);
-        const p = Number(document.getElementById('patternSelect').value);
-        reflectPreview(p, onOff);
-      });
-
-      document.getElementById('btnSetLED').addEventListener('click', async () => {
-        if (!isConnected) { log('デバイス未接続です'); return; }
-        const p = Number(document.getElementById('patternSelect').value);
-        const onOff = Number(document.getElementById('onOff').value);
-        currentPatternEl.textContent = p;
-        try {
-          // Orphe の LED 制御: setLED(on_off, pattern)
-          ble.setLED(onOff, p);
-          log('LED 設定送信: on=' + onOff + ' pattern=' + p);
-        } catch (e) {
-          log('LED 設定エラー:', e.message || e);
-        }
-      });
-
-      // 初期プレビュー
-      reflectPreview(0, 0);
-      updateUI();
-    };
-  </script>
+        // 切断時の処理
+        ble.onDisconnect = () => {
+            stopBlinking();
+            statusText.innerText = "切断されました";
+            connectBtn.style.display = 'inline-block';
+            blinkBtn.disabled = true;
+        };
+    </script>
 </body>
+
 </html>
